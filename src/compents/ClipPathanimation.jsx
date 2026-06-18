@@ -7,6 +7,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function ClipPathAnimation() {
   const containerRef = useRef(null);
+  const topCircleRef = useRef(null);
+  const bottomCircleRef = useRef(null);
 
   useGSAP(
     () => {
@@ -14,21 +16,28 @@ export default function ClipPathAnimation() {
 
       const tl = gsap.timeline({
         scrollTrigger: {
-          trigger: ".reveal-section",
+          // Use the containerRef DOM node directly as the trigger instead of the
+          // global class string ".reveal-section", which would match the first
+          // instance in the document if multiple were ever mounted.
+          trigger: containerRef.current,
           start: "top top",
           end: "+=150%",
           scrub: true,
           pin: true,
-          anticipatePin: 1
-        }
+          anticipatePin: 1,
+        },
       });
 
+      // Direct ref targets instead of global ".reveal-circle.top/bottom" selectors.
+      // The { scope: containerRef } option scopes GSAP's own selector utility but
+      // does NOT scope raw class strings passed as animation targets — those always
+      // resolve against document, making the first DOM match win regardless of scope.
       tl.to(
-        ".reveal-circle.top",
+        topCircleRef.current,
         { clipPath: "circle(140vmax at 50% 0%)", ease: "none" },
         0
       ).to(
-        ".reveal-circle.bottom",
+        bottomCircleRef.current,
         { clipPath: "circle(140vmax at 50% 100%)", ease: "none" },
         0
       );
@@ -40,7 +49,7 @@ export default function ClipPathAnimation() {
     <div ref={containerRef}>
       <section className="reveal-section">
         {/* TOP CIRCLE: grows downward from the top edge */}
-        <div className="inner-content reveal-circle top">
+        <div ref={topCircleRef} className="inner-content reveal-circle top">
           <div className="logos">
             <span>RIVER</span>
             <span>FLOW</span>
@@ -56,7 +65,7 @@ export default function ClipPathAnimation() {
         </div>
 
         {/* BOTTOM CIRCLE: grows upward from the bottom edge */}
-        <div className="inner-content reveal-circle bottom" aria-hidden="true">
+        <div ref={bottomCircleRef} className="inner-content reveal-circle bottom" aria-hidden="true">
           <div className="logos">
             <span>RIVER</span>
             <span>FLOW</span>

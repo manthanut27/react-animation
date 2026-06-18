@@ -118,21 +118,46 @@ export default function ProjectDetail() {
       const trigger = triggerRef.current;
       if (!track || !trigger) return;
 
-      const scrollWidth = track.scrollWidth;
-      const viewWidth = window.innerWidth;
-      const xTranslation = -(scrollWidth - viewWidth);
+      // Bug fix: scrollWidth was previously read synchronously here, before the
+      // gallery <img> elements had finished loading. Network-fetched images don't
+      // contribute their intrinsic dimensions until they decode, so the measurement
+      // was too small on any connection that isn't instant cache — causing dead
+      // scroll space or a gallery that cuts off early.
+      //
+      // Fix: collect a load promise for every image in the track (already-loaded
+      // images resolve immediately via img.complete), wait for all of them, then
+      // measure and create the ScrollTrigger with the real final scrollWidth.
+      const imgs = Array.from(track.querySelectorAll("img"));
+      const loadPromises = imgs.map((img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve; // don't block on a broken image
+            })
+      );
 
-      gsap.to(track, {
-        x: xTranslation,
-        ease: "none",
-        scrollTrigger: {
-          trigger: trigger,
-          start: "top top",
-          end: `+=${scrollWidth}`,
-          pin: true,
-          scrub: 1,
-          anticipatePin: 1
-        }
+      Promise.all(loadPromises).then(() => {
+        const scrollWidth = track.scrollWidth;
+        const viewWidth = window.innerWidth;
+        const xTranslation = -(scrollWidth - viewWidth);
+
+        gsap.to(track, {
+          x: xTranslation,
+          ease: "none",
+          scrollTrigger: {
+            trigger: trigger,
+            start: "top top",
+            end: `+=${scrollWidth}`,
+            pin: true,
+            scrub: 1,
+            anticipatePin: 1,
+          },
+        });
+
+        // Flush any pending ScrollTrigger layout recalculations now that
+        // images have defined their dimensions.
+        ScrollTrigger.refresh();
       });
     },
     { scope: containerRef }

@@ -18,20 +18,16 @@ function App() {
       smoothWheel: true,
     });
 
-    function raf(time) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-
-    requestAnimationFrame(raf);
-
-    lenis.on("scroll", ScrollTrigger.update);
-
+    // Single driver: gsap.ticker keeps Lenis in sync with ScrollTrigger.
+    // A separate requestAnimationFrame loop was previously running lenis.raf()
+    // on a different time base — two drivers fighting each other. Removed.
     gsap.ticker.add((time) => {
       lenis.raf(time * 1000);
     });
 
     gsap.ticker.lagSmoothing(0);
+
+    lenis.on("scroll", ScrollTrigger.update);
 
     // Scroll to top on route change to make page transitions look clean
     const onRouteTransition = () => {

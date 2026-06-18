@@ -22,52 +22,47 @@ export default function CustomCursor() {
 
     window.addEventListener("mousemove", onMouseMove);
 
-    const onMouseEnterInteractive = () => {
+    // Event delegation — one listener on document covers every matching element,
+    // present and future, with zero polling cost.
+    // Previously: setInterval(attachListeners, 2000) re-ran querySelectorAll every
+    // 2 seconds forever, calling addEventListener repeatedly on the same static
+    // elements. Nothing on this page adds interactive elements after mount, so
+    // the interval was pure overhead and a potential source of duplicate listeners.
+    const INTERACTIVE = "a, button, .card, .trail-image, .three-showcase canvas, .circle-wrapper";
+
+    const onDocMouseEnter = (e) => {
+      // e.target can be `document` itself (not an Element) in capture phase —
+      // guard before calling .closest(), which only exists on Element nodes.
+      if (!(e.target instanceof Element)) return;
+      if (!e.target.closest(INTERACTIVE)) return;
       gsap.to(cursor, {
         scale: 1.8,
         backgroundColor: "rgba(255, 255, 255, 0.15)",
         borderColor: "#fff",
-        duration: 0.3
+        duration: 0.3,
       });
       gsap.to(dot, { scale: 0, duration: 0.2 });
     };
 
-    const onMouseLeaveInteractive = () => {
+    const onDocMouseLeave = (e) => {
+      if (!(e.target instanceof Element)) return;
+      if (!e.target.closest(INTERACTIVE)) return;
       gsap.to(cursor, {
         scale: 1,
         backgroundColor: "transparent",
         borderColor: "rgba(255, 255, 255, 0.6)",
-        duration: 0.3
+        duration: 0.3,
       });
       gsap.to(dot, { scale: 1, duration: 0.2 });
     };
 
-    // Attach listeners dynamically to interactive components
-    const attachListeners = () => {
-      const targets = document.querySelectorAll(
-        "a, button, .card, .trail-image, .three-showcase canvas, .circle-wrapper"
-      );
-      targets.forEach((el) => {
-        el.addEventListener("mouseenter", onMouseEnterInteractive);
-        el.addEventListener("mouseleave", onMouseLeaveInteractive);
-      });
-    };
-
-    // Run on mount and periodically query to handle dynamically rendered items
-    attachListeners();
-    const interval = setInterval(attachListeners, 2000);
+    document.addEventListener("mouseenter", onDocMouseEnter, true);
+    document.addEventListener("mouseleave", onDocMouseLeave, true);
 
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
-      clearInterval(interval);
-      
-      const targets = document.querySelectorAll(
-        "a, button, .card, .trail-image, .three-showcase canvas, .circle-wrapper"
-      );
-      targets.forEach((el) => {
-        el.removeEventListener("mouseenter", onMouseEnterInteractive);
-        el.removeEventListener("mouseleave", onMouseLeaveInteractive);
-      });
+      document.removeEventListener("mouseenter", onDocMouseEnter, true);
+      document.removeEventListener("mouseleave", onDocMouseLeave, true);
     };
   }, []);
 
