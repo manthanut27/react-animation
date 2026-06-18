@@ -118,10 +118,6 @@ export default function CircularElements() {
 
   return (
     <div ref={containerRef}>
-      {/* Intro Section */}
-      <section className="hero">
-        <h1>Scroll Down</h1>
-      </section>
 
       {/* Circular Slider Section */}
       <section className="circular-section">
@@ -141,11 +137,6 @@ export default function CircularElements() {
             </div>
           ))}
         </div>
-      </section>
-
-      {/* Outro */}
-      <section className="hero">
-        <h1>End Section</h1>
       </section>
     </div>
   );
