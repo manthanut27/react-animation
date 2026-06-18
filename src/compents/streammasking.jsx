@@ -5,43 +5,34 @@ import { useGSAP } from "@gsap/react";
 
 gsap.registerPlugin(ScrollTrigger);
 
-class GradientBlob {
-    constructor(x, y, r, color, vx, vy) {
-        this.x = x;
-        this.y = y;
-        this.r = r;
-        this.color = color;
-        this.vx = vx;
-        this.vy = vy;
-    }
-
-    update(w, h) {
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Bounce off walls
-        if (this.x - this.r < 0 || this.x + this.r > w) this.vx *= -1;
-        if (this.y - this.r < 0 || this.y + this.r > h) this.vy *= -1;
-    }
-
-    draw(ctx) {
-        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
-        grad.addColorStop(0, this.color);
-        grad.addColorStop(1, "rgba(10, 10, 10, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fill();
-    }
-}
-
 export default function StreamMasking() {
     const containerRef = useRef(null);
     const canvasRef = useRef(null);
-    const textRef = useRef(null);
+    const columnsRef = useRef([]);
+    const slidersRef = useRef([]);
+    const overlaysRef = useRef([]);
+    const bgTextRef = useRef(null);
+    const charsRef = useRef([]);
+    const bgTagRef = useRef(null);
 
-    // Canvas liquid gradient animation
+    const reactChars = ["R", "E", "A", "C", "T"];
+
+    // 3 premium high-res contrasting images for the scrolling sequence
+    const images = [
+        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1600", // Pink/purple abstract flow
+        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1600", // Tech cyber neon grid
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1600"  // Natural organic sunlight
+    ];
+
+    const overlays = [
+        { title: "PERSPECTIVE", subtitle: "SLICED MOTION SYSTEM" },
+        { title: "SYNCHRONICITY", subtitle: "DIGITAL NETWORK GRID" },
+        { title: "REGENERATION", subtitle: "ORGANIC NATURE FLOW" }
+    ];
+
+    const numCols = 5;
+
+    // Interactive mouse-tracking particles canvas
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -49,42 +40,141 @@ export default function StreamMasking() {
         if (!ctx) return;
 
         let animationFrameId;
+        let width = (canvas.width = window.innerWidth);
+        let height = (canvas.height = window.innerHeight);
 
-        const resizeCanvas = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        const mouse = { x: null, y: null, radius: 150 };
+
+        const handleResize = () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
         };
 
-        resizeCanvas();
-        window.addEventListener("resize", resizeCanvas);
+        const handleMouseMove = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        };
 
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        const baseRadius = Math.min(w, h);
+        const handleMouseLeave = () => {
+            mouse.x = null;
+            mouse.y = null;
+        };
 
-        // Create a pool of large flowing colorful blobs with responsive coordinates and radii
-        const blobs = [
-            new GradientBlob(w * 0.2, h * 0.2, baseRadius * 0.8, "rgba(99, 102, 241, 0.8)", 1.5, 1.2), // Indigo
-            new GradientBlob(w * 0.8, h * 0.4, baseRadius * 0.9, "rgba(236, 72, 153, 0.8)", -1.2, 1.6), // Pink
-            new GradientBlob(w * 0.3, h * 0.8, baseRadius * 0.85, "rgba(20, 184, 166, 0.8)", 1.6, -1.0), // Teal
-            new GradientBlob(w * 0.9, h * 0.7, baseRadius * 0.95, "rgba(249, 115, 22, 0.75)", -1.0, -1.4) // Orange
-        ];
+        window.addEventListener("resize", handleResize);
+        
+        // Track mouse events on the main container
+        const parent = containerRef.current;
+        if (parent) {
+            parent.addEventListener("mousemove", handleMouseMove);
+            parent.addEventListener("mouseleave", handleMouseLeave);
+        }
+
+        // Particle System
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.7;
+                this.vy = (Math.random() - 0.5) * 0.7;
+                this.radius = Math.random() * 3 + 2;
+                // Elegant colors to complement the deep background and image transitions
+                const colors = [
+                    "rgba(255, 255, 255, 0.85)", 
+                    "rgba(133, 112, 171, 0.95)", // Syne purple
+                    "rgba(99, 102, 241, 0.95)"   // Indigo
+                ];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off boundaries
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                // Mouse interaction (gentle repulsion)
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < mouse.radius) {
+                        const force = (mouse.radius - distance) / mouse.radius;
+                        const directionX = dx / distance;
+                        const directionY = dy / distance;
+
+                        // Push particles away smoothly
+                        this.x -= directionX * force * 2.5;
+                        this.y -= directionY * force * 2.5;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // Set up particle density based on screen size
+        const particleCount = Math.min(80, Math.floor((width * height) / 15000));
+        const particles = Array.from({ length: particleCount }, () => new Particle());
+
+        // Draw connections between close nodes and the mouse
+        const drawConnections = () => {
+            for (let i = 0; i < particles.length; i++) {
+                const p1 = particles[i];
+
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 110) {
+                        const alpha = (110 - dist) / 110 * 0.55;
+                        ctx.strokeStyle = `rgba(133, 112, 171, ${alpha})`;
+                        ctx.lineWidth = 1.0;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+
+                // Connection line to mouse
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = p1.x - mouse.x;
+                    const dy = p1.y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < mouse.radius) {
+                        const alpha = (mouse.radius - dist) / mouse.radius * 0.75;
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        };
 
         const render = () => {
-            // Clear with dark base color
-            ctx.fillStyle = "#0a0a0a";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, width, height);
 
-            ctx.save();
-            // Ensure color overlay blends together nicely
-            ctx.globalCompositeOperation = "screen";
-
-            blobs.forEach((blob) => {
-                blob.update(canvas.width, canvas.height);
-                blob.draw(ctx);
+            particles.forEach((p) => {
+                p.update();
+                p.draw();
             });
 
-            ctx.restore();
+            drawConnections();
 
             animationFrameId = requestAnimationFrame(render);
         };
@@ -93,79 +183,235 @@ export default function StreamMasking() {
 
         return () => {
             cancelAnimationFrame(animationFrameId);
-            window.removeEventListener("resize", resizeCanvas);
+            window.removeEventListener("resize", handleResize);
+            if (parent) {
+                parent.removeEventListener("mousemove", handleMouseMove);
+                parent.removeEventListener("mouseleave", handleMouseLeave);
+            }
         };
     }, []);
 
-    // GSAP ScrollTrigger for zooming into the text cutout
     useGSAP(
         () => {
-            if (!textRef.current || !containerRef.current) return;
+            if (!containerRef.current) return;
 
-            // Set origin precisely on the SVG text center
-            gsap.set(textRef.current, { transformOrigin: "960px 540px" });
+            const cols = columnsRef.current.slice(0, numCols);
+            const sliders = slidersRef.current.slice(0, numCols);
+            const chars = charsRef.current.filter(Boolean);
 
-            // Scale text up enormously to reveal background stream
+            // --- Background text entrance (immediate, before scroll) ---
             gsap.fromTo(
-                textRef.current,
-                { scale: 1 },
+                chars,
+                { opacity: 0, y: 80 },
                 {
-                    scale: 65,
-                    ease: "power2.inOut",
-                    scrollTrigger: {
-                        trigger: containerRef.current,
-                        start: "top top",
-                        end: "+=1500",
-                        pin: true,
-                        scrub: 1
-                    }
+                    opacity: 1,
+                    y: 0,
+                    ease: "power4.out",
+                    duration: 1.2,
+                    stagger: 0.08,
+                    delay: 0.2,
                 }
             );
+            gsap.fromTo(
+                bgTagRef.current,
+                { opacity: 0, y: 10 },
+                { opacity: 1, y: 0, ease: "power3.out", duration: 1, delay: 0.9 }
+            );
+
+            const tl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: containerRef.current,
+                    start: "top top",
+                    end: "+=3600",
+                    pin: true,
+                    scrub: 1,
+                }
+            });
+
+            // Fade out background text as columns reveal
+            tl.to(
+                [bgTextRef.current],
+                { opacity: 0, scale: 1.08, ease: "power2.in", duration: 0.4 },
+                0
+            );
+
+            // PHASE 1: Staggered reveal of Image 1 from down to up
+            tl.fromTo(
+                cols,
+                { yPercent: 100 },
+                {
+                    yPercent: 0,
+                    ease: "power2.inOut",
+                    stagger: 0.08,
+                },
+                0
+            );
+
+            tl.fromTo(
+                sliders,
+                { yPercent: -100 }, // Counter translate to keep Image 1 stationary relative to screen
+                {
+                    yPercent: 0,
+                    ease: "power2.inOut",
+                    stagger: 0.08,
+                },
+                0
+            );
+
+            // Overlay 1 Fade In
+            const o1Title = overlaysRef.current[0]?.querySelector("h1");
+            const o1Sub = overlaysRef.current[0]?.querySelector(".stream-subtitle");
+            if (o1Title && o1Sub) {
+                tl.fromTo(o1Title, { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.3");
+                tl.fromTo(o1Sub, { y: 20, opacity: 0 }, { y: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.2");
+            }
+
+            // PHASE 2: Slide to Image 2 (slide up by -100%)
+            // Fade out Overlay 1
+            if (overlaysRef.current[0]) {
+                tl.to(overlaysRef.current[0], { opacity: 0, y: -40, ease: "power2.in", duration: 0.4 }, "+=0.3");
+            }
+
+            // Slide columns to reveal Image 2
+            tl.to(
+                sliders,
+                {
+                    yPercent: -100,
+                    ease: "power2.inOut",
+                    stagger: 0.08,
+                },
+                "-=0.2"
+            );
+
+            // Overlay 2 Fade In
+            const o2Title = overlaysRef.current[1]?.querySelector("h1");
+            const o2Sub = overlaysRef.current[1]?.querySelector(".stream-subtitle");
+            if (o2Title && o2Sub) {
+                tl.fromTo(o2Title, { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.5");
+                tl.fromTo(o2Sub, { y: 20, opacity: 0 }, { y: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.4");
+            }
+
+            // PHASE 3: Slide to Image 3 (slide up by -200%)
+            // Fade out Overlay 2
+            if (overlaysRef.current[1]) {
+                tl.to(overlaysRef.current[1], { opacity: 0, y: -40, ease: "power2.in", duration: 0.4 }, "+=0.3");
+            }
+
+            // Slide columns to reveal Image 3
+            tl.to(
+                sliders,
+                {
+                    yPercent: -200,
+                    ease: "power2.inOut",
+                    stagger: 0.08,
+                },
+                "-=0.2"
+            );
+
+            // Overlay 3 Fade In
+            const o3Title = overlaysRef.current[2]?.querySelector("h1");
+            const o3Sub = overlaysRef.current[2]?.querySelector(".stream-subtitle");
+            if (o3Title && o3Sub) {
+                tl.fromTo(o3Title, { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.5");
+                tl.fromTo(o3Sub, { y: 20, opacity: 0 }, { y: 0, opacity: 1, ease: "power3.out", duration: 0.5 }, "-=0.4");
+            }
         },
         { scope: containerRef }
     );
 
     return (
         <div ref={containerRef} className="stream-hero-container">
-            {/* Liquid Canvas Stream */}
-            <canvas ref={canvasRef} className="stream-canvas" />
+            {/* Interactive Particle Background */}
+            <canvas ref={canvasRef} className="stream-bg-canvas" />
 
-            {/* SVG Text Mask overlay */}
-            <svg
-                className="stream-mask-svg"
-                viewBox="0 0 1920 1080"
-                preserveAspectRatio="xMidYMid slice"
-            >
-                <defs>
-                    <mask id="hero-text-mask">
-                        {/* White parts keep content, black cutout hides it */}
-                        <rect width="1920" height="1080" fill="white" />
-                        <text
-                            ref={textRef}
-                            x="960"
-                            y="540"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="240"
-                            fontWeight="900"
-                            fill="black"
-                            style={{ fontFamily: "Impact, sans-serif" }}
+            {/* Animated REACT background text */}
+            <div ref={bgTextRef} className="stream-bg-text">
+                <div className="stream-bg-word">
+                    {reactChars.map((char, i) => (
+                        <span
+                            key={i}
+                            ref={(el) => (charsRef.current[i] = el)}
+                            className="stream-bg-char"
+                            data-char={char}
                         >
-                            STREAM
-                        </text>
-                    </mask>
-                </defs>
+                            {char}
+                        </span>
+                    ))}
+                </div>
+                <div ref={bgTagRef} className="stream-bg-tag">
+                    INTERACTIVE · ANIMATION · STUDIO
+                </div>
+            </div>
 
-                {/* Foreground Solid Rect that has the Text cutout */}
-                <rect
-                    width="1920"
-                    height="1080"
-                    fill="#0f0f0f"
-                    mask="url(#hero-text-mask)"
-                />
-            </svg>
+            <div className="stream-split-wrapper">
+                {Array.from({ length: numCols }).map((_, i) => {
+                    const widthPercent = 100 / numCols;
+                    const leftPercent = i * widthPercent;
 
-            {/* Scroll indicator overlay */}
+                    return (
+                        <div
+                            key={i}
+                            ref={(el) => (columnsRef.current[i] = el)}
+                            className="stream-col"
+                            style={{
+                                left: `${leftPercent}%`,
+                                width: `${widthPercent}%`,
+                            }}
+                        >
+                            <div className="stream-col-image-wrapper">
+                                <div
+                                    ref={(el) => (slidersRef.current[i] = el)}
+                                    className="stream-image-slider"
+                                    style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        left: 0,
+                                        width: "100%",
+                                        height: "100%",
+                                    }}
+                                >
+                                    {images.map((imgUrl, imgIdx) => (
+                                        <img
+                                            key={imgIdx}
+                                            src={imgUrl}
+                                            alt={`Stream segment ${i + 1} image ${imgIdx + 1}`}
+                                            style={{
+                                                position: "absolute",
+                                                top: `${imgIdx * 100}%`,
+                                                left: `-${i * widthPercent}vw`,
+                                                width: "100vw",
+                                                height: "100vh",
+                                                objectFit: "cover",
+                                                maxWidth: "none",
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Elegant stacked overlay typography */}
+            <div className="stream-overlay-content">
+                {overlays.map((overlay, index) => (
+                    <div
+                        key={index}
+                        ref={(el) => (overlaysRef.current[index] = el)}
+                        className="stream-text-overlay-group"
+                    >
+                        <div className="stream-title-reveal">
+                            <h1>{overlay.title}</h1>
+                        </div>
+                        <div className="stream-subtitle">
+                            {overlay.subtitle}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Pulse Scroll Indicator */}
             <div className="stream-overlay-text">Scroll Down</div>
         </div>
     );
